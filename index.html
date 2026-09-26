@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VGGT-ρ: Accelerating Visual Geometry Inference via Adaptive View Selection</title>
+  <meta name="description" content="VGGT-ρ selects representative views with low-resolution DINO descriptors and global farthest-point sampling for efficient, training-free 3D reconstruction.">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#126c69">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="VGGT-ρ: Accelerating Visual Geometry Inference via Adaptive View Selection">
+  <meta property="og:description" content="Training-free view selection for frozen visual geometry models. Anonymous project page.">
+  <link rel="icon" type="image/svg+xml" href="static/images/favicon.svg">
+  <link rel="stylesheet" href="static/css/index.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="site-header">
+    <nav class="nav container" aria-label="Page navigation">
+      <a class="wordmark" href="#top">VGGT-<span>ρ</span></a>
+      <div class="nav-links">
+        <a href="#abstract">Abstract</a>
+        <a href="#method">Method</a>
+        <a href="#results">Results</a>
+        <a href="#reconstructions">Reconstructions</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main-content">
+    <section class="hero container" id="top" aria-labelledby="paper-title">
+      <p class="eyebrow">Anonymous project page</p>
+      <h1 id="paper-title"><span class="project-name">VGGT-<span class="rho">ρ</span></span>Accelerating Visual Geometry Inference<br class="desktop-break"> via Adaptive View Selection</h1>
+      <p class="authors">Anonymous Authors</p>
+      <p class="hero-description">Select representative views. Reconstruct the full scene.<br>A training-free input selector for frozen visual geometry models.</p>
+      <div class="hero-links">
+        <a class="button primary" href="#method">Explore the method <span aria-hidden="true">↓</span></a>
+        <a class="button" href="#results">View results <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="highlights" aria-label="Research highlights">
+        <div><strong>15<span>%</span></strong><p>of candidate views retained</p></div>
+        <div><strong>13–24<span>×</span></strong><p>core-pipeline speedup on ScanNet-50</p></div>
+        <div><strong>63–74<span>%</span></strong><p>lower peak allocated memory on ScanNet-50</p></div>
+      </div>
+      <p class="highlight-note">VGGT-Ω on NVIDIA H200 · candidate limits of 300, 500, and 1000 · selection overhead included</p>
+    </section>
+
+    <section class="container overview" aria-label="Method overview">
+      <figure>
+        <a class="figure-link" href="static/images/fig_01_method_overview.png" aria-label="Open the method overview at full size">
+          <img src="static/images/fig_01_method_overview.png" width="2400" height="1269" alt="VGGT-ρ pipeline: low-resolution DINO encoding, global FPS view selection, and frozen high-resolution reconstruction; an FPS example and NRGBD kitchen reconstructions compare full and selected inputs." fetchpriority="high">
+        </a>
+        <figcaption><strong>Fewer views, the same scene domain.</strong> Low-resolution DINO descriptors guide global FPS to select a compact RGB subset. In the NRGBD kitchen example, 75 of 500 views preserve the scene structure while reducing ACC from 22.6 to 17.4 mm and completeness error from 13.3 to 11.1 mm. Both reconstructions use the same full-input ground-truth domain.</figcaption>
+      </figure>
+    </section>
+
+    <section class="section shaded" id="abstract" aria-labelledby="abstract-title">
+      <div class="container reading-width">
+        <p class="eyebrow">The idea</p>
+        <h2 id="abstract-title">Abstract</h2>
+        <p>Feed-forward visual geometry models jointly predict scene geometry and camera poses, but dense global attention becomes costly as the number of input views grows. We investigate whether a small representative subset can recover the scene represented by the full input collection. Our exploratory studies show that sparse subsets retain much of the geometric coverage, while higher thresholded descriptor coverage does not consistently improve reconstruction.</p>
+        <p>We introduce <strong>VGGT-ρ</strong>, a training-free framework that selects a user-specified fraction of views through global farthest-point sampling in low-resolution DINO descriptor space. Using descriptors from the frozen VGGT-Ω image encoder, selection starts from a fixed reference view and repeatedly adds the candidate farthest from its nearest selected representative. The selected RGB images are passed in their relative input order to a frozen high-resolution reconstruction model.</p>
+        <p>Experiments on 7 Scenes, NRGBD, ScanNet-50, and Tanks and Temples show that retaining 15% of candidate views largely preserves VGGT-Ω reconstruction quality over the full-input scene domain and pose quality on the selected views. On ScanNet-50, core-pipeline speedups reach 13.0×–24.0×, with 63.3%–73.8% lower peak allocated GPU memory, including low-resolution encoding and selection overhead. Transfer experiments with FastVGGT and SparseVGGT further demonstrate the applicability of view selection across backbones, with quality trade-offs depending on the dataset and input budget.</p>
+      </div>
+    </section>
+
+    <section class="section container" id="method" aria-labelledby="method-title">
+      <p class="eyebrow">How it works</p>
+      <h2 id="method-title">Global DINO farthest-point sampling</h2>
+      <p class="section-intro">Given N candidate images and a retained-view fraction ρ, select K = ⌈ρN⌉ views, including the first input as the reference.</p>
+      <div class="method-grid">
+        <article><span class="step">01 / Describe</span><h3>Encode all views at low resolution</h3><p>The frozen VGGT-Ω image encoder processes images at 224 × 288. Patch features are pooled into 4 × 4 spatial bins, normalized per bin, concatenated, and normalized again to form a DINO descriptor for each view.</p></article>
+        <article><span class="step">02 / Select</span><h3>Choose the least represented view</h3><p>Compute pairwise cosine distances once. Starting from the reference view, repeatedly select the candidate with the largest distance to its nearest selected representative until K views are selected.</p></article>
+        <article><span class="step">03 / Reconstruct</span><h3>Run the frozen high-resolution model</h3><p>Assemble the selected RGB images in their relative input order. The reconstruction model predicts depth and cameras for these views. Reconstruction is evaluated against the same full-scene domain as Full.</p></article>
+      </div>
+      <div class="selection-rule">
+        <p class="rule-label">The selection rule</p>
+        <p class="equation" aria-label="Select the unselected view i that maximizes its minimum cosine distance to any selected view j">i* = arg max<sub>i ∉ S</sub> min<sub>j ∈ S</sub> (1 − z<sub>i</sub><sup>T</sup>z<sub>j</sub>)</p>
+        <p>Here z is a normalized DINO descriptor and S is the selected set. Ties favor the smaller input index. Descriptors and distances are reused within each selection call.</p>
+      </div>
+    </section>
+
+    <section class="section shaded" id="results" aria-labelledby="results-title">
+      <div class="container">
+        <p class="eyebrow">Quality &amp; efficiency</p>
+        <h2 id="results-title">Reconstruct with 15% of the views</h2>
+        <p class="section-intro">Full and + VGGT-ρ share the same frozen backbone. Reconstruction quality covers the full-input scene domain; pose comparisons use the same selected views.</p>
+        <h3>ScanNet-50: reconstruction, runtime, and memory</h3>
+        <div class="table-scroll" role="region" aria-label="ScanNet-50 results, scroll horizontally on small screens" tabindex="0">
+          <table>
+            <caption>VGGT-Ω on 50 scenes. Lower Chamfer distance (CD), time, and memory are better.</caption>
+            <thead><tr><th scope="col">Candidate limit</th><th scope="col">Input</th><th scope="col">High-res. views</th><th scope="col">CD (m) ↓</th><th scope="col">Time (s) ↓</th><th scope="col">Peak allocated (GiB) ↓</th></tr></thead>
+            <tbody>
+              <tr><th scope="row" rowspan="2">300</th><td>Full</td><td>300</td><td>0.198</td><td>13.233</td><td>21.29</td></tr>
+              <tr class="ours"><td>+ VGGT-ρ</td><td>45</td><td>0.202</td><td>1.015</td><td>7.81</td></tr>
+              <tr><th scope="row" rowspan="2">500</th><td>Full</td><td>430–500</td><td>0.216</td><td>33.797</td><td>32.61</td></tr>
+              <tr class="ours"><td>+ VGGT-ρ</td><td>65–75</td><td>0.216</td><td>1.927</td><td>10.14</td></tr>
+              <tr><th scope="row" rowspan="2">1000</th><td>Full</td><td>430–1000</td><td>0.206</td><td>115.736</td><td>60.92</td></tr>
+              <tr class="ours"><td>+ VGGT-ρ</td><td>65–150</td><td>0.204</td><td>4.815</td><td>15.97</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">Candidate limits are upper bounds; actual input counts vary by scene. Time is the equal-scene mean of formal-round medians. Memory is the maximum allocated peak across scenes and formal rounds, including the resident model and selector.</p>
+
+        <h3 class="result-heading">Indoor reconstruction</h3>
+        <div class="table-scroll" role="region" aria-label="Indoor reconstruction results, scroll horizontally on small screens" tabindex="0">
+          <table>
+            <caption>VGGT-Ω at a 1000-frame candidate limit. ACC and Comp are in meters; NC is normal consistency.</caption>
+            <thead><tr><th scope="col">Dataset</th><th scope="col">Input</th><th scope="col">ACC ↓</th><th scope="col">Comp ↓</th><th scope="col">NC ↑</th><th scope="col">Time (s) ↓</th></tr></thead>
+            <tbody>
+              <tr><th scope="row" rowspan="2">7 Scenes</th><td>Full</td><td>0.019</td><td>0.016</td><td>0.628</td><td>117.1</td></tr>
+              <tr class="ours"><td>+ VGGT-ρ</td><td>0.019</td><td>0.016</td><td>0.631</td><td>4.7</td></tr>
+              <tr><th scope="row" rowspan="2">NRGBD</th><td>Full</td><td>0.016</td><td>0.009</td><td>0.865</td><td>114.1</td></tr>
+              <tr class="ours"><td>+ VGGT-ρ</td><td>0.014</td><td>0.008</td><td>0.888</td><td>4.6</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">Equal-weight averages over 18 test sequences for 7 Scenes and nine scenes for NRGBD. Values follow the manuscript's reported precision.</p>
+        <div class="findings-grid">
+          <article><h3>Pose quality on selected views</h3><p>At the ScanNet-50 1000-frame limit, VGGT-Ω AUC@5/15/30 changes from 23.7/59.1/76.1 to 24.8/60.4/76.9 (%). On complete Tanks and Temples sequences, mean AUC@30 changes from 76.2% to 77.7%.</p></article>
+          <article><h3>Transfer across backbones</h3><p>The same selector applies to FastVGGT and SparseVGGT. Quality trade-offs depend on the dataset and budget: both improve normal consistency on 7 Scenes while incurring higher completeness error. Transfer timings in the manuscript are estimates from separately measured selection and inference costs.</p></article>
+        </div>
+        <details class="timing-note">
+          <summary>What is included in core-pipeline time?</summary>
+          <p>For VGGT-Ω, wall-clock timing runs from prepared CPU image tensors to high-resolution depth and camera predictions returned to the CPU. It includes low-resolution encoding, descriptor readout, distance computation, global FPS, subset assembly, high-resolution inference, and required data transfers. CUDA is synchronized at the boundaries.</p>
+          <p>Model loading, image decoding and multiscale input preparation, point-cloud processing, and quality evaluation are excluded. Each measured round recomputes encoding and selection.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="section container" aria-labelledby="budget-title">
+      <p class="eyebrow">Ablation study</p>
+      <h2 id="budget-title">Choosing the retained-view budget</h2>
+      <p class="section-intro">On nine NRGBD scenes, global FPS achieves its lowest mean CD among the tested 10%–25% retention settings at 15%. More views increase computation without a monotonic improvement in reconstruction quality on this panel.</p>
+      <figure>
+        <a class="figure-link" href="static/images/fig_04_budget_quality_cost.png" aria-label="Open the budget ablation figure at full size"><img src="static/images/fig_04_budget_quality_cost.png" width="2400" height="995" alt="NRGBD budget ablation comparing reconstruction Chamfer distance and core-pipeline time for global FPS, uniform sampling, and random sampling." loading="lazy"></a>
+        <figcaption>Up to 500 candidates, with a fixed full-input ground-truth domain. Markers represent 10%, 15%, 20%, and 25% retention. Random averages 20 seeds per scene; shading shows the range of seed-wise dataset means. Global FPS improves mean CD over Random on both indoor datasets and over Uniform on NRGBD; Uniform has lower mean CD on 7 Scenes at the matched 15% budget.</figcaption>
+      </figure>
+    </section>
+
+    <section class="section shaded" id="reconstructions" aria-labelledby="reconstructions-title">
+      <div class="container">
+        <p class="eyebrow">Qualitative results</p>
+        <h2 id="reconstructions-title">Scene reconstructions</h2>
+        <p class="section-intro">Full and selected-input reconstructions across three backbones. Panels within each scene share the display camera, scale, point size, and sampled point count. Select a figure to inspect it at full size.</p>
+        <figure class="gallery-figure">
+          <h3>NRGBD · breakfast_room</h3>
+          <a class="figure-link" href="static/images/fig_08_nrgbd_breakfast_room_reconstruction.png" aria-label="Open the NRGBD breakfast room comparison at full size"><img src="static/images/fig_08_nrgbd_breakfast_room_reconstruction.png" width="2400" height="940" alt="NRGBD breakfast room: ground truth and reconstructions from VGGT-Ω, FastVGGT, and SparseVGGT, comparing all views with 15% selected views." loading="lazy"></a>
+          <figcaption>ACC and Comp are in millimeters; lower is better. The ground-truth domain covers all candidate inputs.</figcaption>
+        </figure>
+        <figure class="gallery-figure">
+          <h3>7 Scenes · office/seq-02</h3>
+          <a class="figure-link" href="static/images/fig_12_seven_scenes_office_seq_02_reconstruction.png" aria-label="Open the 7 Scenes office comparison at full size"><img src="static/images/fig_12_seven_scenes_office_seq_02_reconstruction.png" width="2400" height="940" alt="7 Scenes office sequence 02: full versus selected-input reconstructions for three backbones, with ground truth and accuracy and completeness annotations." loading="lazy"></a>
+          <figcaption>ACC and Comp are in millimeters. All three backbones have higher completeness error with selected inputs in this scene, illustrating the scene-dependent quality trade-off.</figcaption>
+        </figure>
+        <figure class="gallery-figure">
+          <h3>ScanNet · scene0000_00</h3>
+          <a class="figure-link" href="static/images/fig_14_scannet_scene0000_00_reconstruction.png" aria-label="Open the ScanNet comparison at full size"><img src="static/images/fig_14_scannet_scene0000_00_reconstruction.png" width="2400" height="940" alt="ScanNet scene0000_00: ground truth and full versus selected-input reconstructions from VGGT-Ω, FastVGGT, and SparseVGGT." loading="lazy"></a>
+          <figcaption>CD is in meters; lower is better. The displayed colored reference uses the dense mesh; quality evaluation uses the evaluation mesh vertices. Display sampling does not change the reported metrics.</figcaption>
+        </figure>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer container">
+    <p><strong>VGGT-ρ</strong> · Anonymous research project</p>
+    <p class="credits">Website template attribution (unrelated to the research authors): adapted from the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" rel="noreferrer noopener">Academic Project Page Template</a> and <a href="https://nerfies.github.io/" rel="noreferrer noopener">Nerfies</a>. Template licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="license noreferrer noopener">CC BY-SA 4.0</a>. Content and layout modified for this anonymous page.</p>
+  </footer>
+</body>
+</html>
