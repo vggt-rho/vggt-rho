@@ -24,6 +24,4 @@ The page identifies the authors as “Anonymous Authors”. Author names, affili
 
 Publish only this directory using an anonymous hosting account and URL. Before adding a paper, supplementary file, or new media, inspect its visible content and embedded metadata for author or institution identifiers. Hosting account information and domain ownership are outside the static page.
 
-## Template attribution
 
-The page was adapted from the [Academic Project Page Template](https://github.com/eliahuhorwitz/Academic-project-page-template), itself based on [Nerfies](https://nerfies.github.io/). These are third-party template credits, not research-author affiliations. The template is licensed under [Creative Commons Attribution-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-sa/4.0/). The content, layout, styles, and assets have been modified for this anonymous project page.
